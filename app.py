@@ -14,7 +14,7 @@ st.set_page_config(page_title="♻ Waste Segregation AI", layout="wide", initial
 # Load model once, cache for performance
 @st.cache_resource
 def load_model():
-    model_path = r'C:\Users\sonka\OneDrive\Desktop\project_inter\project\runs\detect\train5\weights\best.pt'
+    model_path = Path("best.pt")
     try:
         model = YOLO(model_path)
         return model
