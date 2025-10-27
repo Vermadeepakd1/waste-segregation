@@ -9,7 +9,7 @@ __pycache__/
 *.pyd
 
 # Model weights (too large for GitHub)
-*.pt
+
 
 # Training outputs and logs
 runs/
