@@ -1,105 +1,162 @@
-# AI-Driven Waste Segregation System
+## Waste Segregation — AI-powered garbage classification
 
-## Overview
-This project implements a real-time waste detection and classification system using the YOLOv8 deep learning model. It is trained on the Roboflow Garbage Classification dataset to classify waste into multiple categories such as glass, metal, biodegradable, cardboard, plastic, and paper.
+A compact, reproducible repository for training and running a YOLO-based waste-segregation model. The project includes dataset config, training scripts, example weights, and a Streamlit-based demo app for quick inference.
 
-Developed as part of the Inter IIIT Hackathon 2025 by IIITDM Kurnool.
+Key features:
+- YOLO-based object detection (YOLOv8 compatible)
+- Streamlit demo for image/video/webcam inference (`app.py`)
+- Training scripts and dataset config (`data.yaml`, `train_model.py`, `train/`)
+- Example model weights and training runs in `runs/`
 
-## Features
-- Real-time detection on images, videos, and live webcam feed
-- Custom-trained YOLOv8 model with high accuracy on garbage classification
-- Interactive Streamlit frontend with confidence tuning and analytics dashboard
-- Video processing with detection statistics and sample frames
-- Clean, user-friendly interface
+Contents in this README:
+- Quick start (install & run)
+- Dataset & format
+- Train & evaluate
+- Run inference (Streamlit / script)
+- File layout and notes
 
-## Demo Video
-(OPTIONAL: Add link or path to demo video showing real-time detection)
+## Quick start
 
-## Dataset
-- Source: Roboflow Garbage Classification
-- Link: https://universe.roboflow.com/material-identification/garbage-classification-3
-- Classes: GLASS, METAL, BIODEGRADABLE, CARDBOARD, PLASTIC, PAPER
+Prerequisites: Python 3.8+ and Git. We recommend using a virtual environment.
 
-## Installation
+1) Clone and enter the repository
 
-1. Clone the repository:
+```bash
 git clone https://github.com/YOUR-GITHUB-USERNAME/waste-segregation.git
 cd waste-segregation
+```
 
-text
+2) Create & activate a virtual environment
 
-2. Create and activate a virtual environment:
-python -m venv venv
+Windows (PowerShell):
 
-Windows
-venv\Scripts\activate
+```pwsh
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
 
-Mac/Linux
-source venv/bin/activate
+macOS / Linux:
 
-text
+```bash
+python -m venv .venv
+source .venv/bin/activate
+```
 
-3. Install required libraries:
+3) Install dependencies
+
+```bash
 pip install -r requirements.txt
+```
 
-text
+If you plan to use Ultralytics' YOLO training APIs directly, make sure `ultralytics` is installed (it's typically present in `requirements.txt`).
 
-## Usage
+## Dataset & format
 
-### Train the Model
+This repository uses the YOLO (Darknet) text-label format: for each image there is a corresponding .txt file with lines formatted as:
+
+```
+class_id center_x center_y width height
+```
+
+All coordinates are normalized to [0,1]. Example dataset folders are `train/`, `valid/`, and `test/` with subfolders `images/` and `labels/`.
+
+The project originally used the Roboflow Garbage Classification dataset. See `data.yaml` for class names and paths used for training.
+
+## Training
+
+Two ways to train:
+
+- Use the included training script (simple wrapper):
+
+```bash
 python train_model.py
+```
 
-text
+- Or use Ultralytics YOLOv8 directly (example):
 
-### Test on Images
+```python
+from ultralytics import YOLO
+model = YOLO('yolov8n.pt')  # or use your starting weights
+model.train(data='data.yaml', epochs=50, imgsz=640)
+```
+
+During training, model artifacts and logs are saved to `runs/` (check `runs/train/` or `runs/detect/` for weights and results).
+
+Tips:
+- To resume training from a checkpoint, pass the checkpoint path as the `weights` argument in the training call.
+- Monitor training with the generated `results.png` and the `runs/train/exp*/` folder.
+
+## Inference / Demo (Streamlit)
+
+The repo contains `app.py`, a Streamlit app that demonstrates detection on images, videos, and webcam. Run it with:
+
+```bash
 streamlit run app.py
+```
 
-text
+App features:
+- Image upload and batch processing
+- Video file processing with basic stats
+- Live webcam detection (if camera available)
 
-- Select "Image Detection" in the sidebar and upload images.
+Alternatively, you can run a simple detection script that loads a weight and runs inference on an image:
 
-### Test on Videos
-- Select "Video Detection" and upload video files for detection.
+```python
+from ultralytics import YOLO
+model = YOLO('runs/train/your_weights.pt')
+results = model('test/images/example.jpg')
+results.show()
+```
 
-### Live Webcam Detection
-- Select "Live Webcam" mode and start/stop webcam detection.
+## Evaluation
 
-## Repository Structure
+After training, metrics (mAP, precision, recall) are available in the training output (console and `runs/train/exp*/metrics.csv`). Replace `exp*` with the actual experiment folder name.
 
-waste-segregation/
-├── app.py # Streamlit frontend code
-├── train_model.py # YOLOv8 training script
-├── requirements.txt # Project dependencies
-├── README.md # This file
-├── runs/ # Output of training and inference
-│ ├── detect/ # Trained weights, inference outputs
-│ └── ...
-├── data.yaml # Dataset config file for training
-└── demo/ # Demo videos and screenshots (optional)
+## Project structure
 
-text
+Top-level layout (important files/folders):
 
-## Model Performance
+```
+.
+├─ app.py               # Streamlit demo app
+├─ train_model.py       # High-level training wrapper
+├─ data.yaml            # YOLO data config (classes, train/val paths)
+├─ requirements.txt     # Python dependencies
+├─ runs/                # Training/inference outputs and weights
+├─ train/               # Optional training helpers / images / labels
+├─ valid/               # Validation dataset images/labels
+├─ test/                # Test images and labels
+├─ yolov8n.pt           # Example base weights (Ultralytics)
+└─ yolo11n.pt           # Example custom weights (if present)
+```
 
-| Metric         | Score  |
-| -------------- | ------ |
-| mAP@0.5        | 54.6%  |
-| Precision      | 59.4%  |
-| Recall         | 49.4%  |
-| Inference FPS  | 435+   |
+## Notes & troubleshooting
 
-Best-performing classes:
-- GLASS (80.4% mAP50)
-- METAL (70.3% mAP50)
-- BIODEGRADABLE (63.2% mAP50)
+- If Streamlit fails to start, ensure your virtual environment is activated and `streamlit` is installed.
+- If GPU training is required, ensure CUDA drivers + `torch` with CUDA are installed and visible to Python.
+- If you get label-format errors during training, check `train/labels/*.txt` for correct `class x y w h` normalized values.
 
 ## Contributing
-Contributions are welcome! Please open an issue or submit a pull request.
+
+Contributions welcome. Opening issues with reproducible details or a small PR with tests/documentation is ideal.
+
+Suggested small tasks:
+- Add example inference notebooks
+- Add a Dockerfile for reproducible runs
+- Add CI checks for linting or simple smoke tests
 
 ## License
-MIT License
+
+This repository is released under the MIT License. See `LICENSE` if present.
 
 ## Acknowledgements
-- Roboflow for dataset
-- Ultralytics for YOLOv8 library
-- Streamlit for UI
+
+- Roboflow (dataset exports)
+- Ultralytics (YOLOv8)
+- Streamlit (UI)
+
+---
+
+If you'd like, I can also:
+- Add a short CONTRIBUTING.md and issue/PR templates
+- Add a minimal GitHub Actions workflow to run a fast lint/test
