@@ -19,10 +19,31 @@ Contents in this README:
 
 Prerequisites: Python 3.8+ and Git. We recommend using a virtual environment.
 
+# Waste Segregation — AI-powered garbage classification 🚮🤖
+
+A compact, reproducible repository for training and running a YOLO-based waste-segregation model. The project includes dataset config, training scripts, example weights, and a Streamlit-based demo app for quick inference.
+
+✨ Key features
+- 🚀 YOLOv8-based object detection
+- 🖼️ Streamlit demo for image/video/webcam inference (`app.py`)
+- 🧰 Training scripts and dataset config (`data.yaml`, `train_model.py`, `train/`)
+- 📦 Example model weights and training runs in `runs/`
+
+📚 Contents in this README
+- Quick start (install & run)
+- Dataset & format
+- Train & evaluate
+- Run inference (Streamlit / script)
+- File layout and notes
+
+## Quick start — Run locally (Windows / macOS / Linux) 🚀
+
+Prerequisites: Python 3.8+ and Git. We recommend using a virtual environment.
+
 1) Clone and enter the repository
 
 ```bash
-git clone https://github.com/YOUR-GITHUB-USERNAME/waste-segregation.git
+git clone https://github.com/Vermadeepakd1/waste-segregation.git
 cd waste-segregation
 ```
 
@@ -48,58 +69,58 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-If you plan to use Ultralytics' YOLO training APIs directly, make sure `ultralytics` is installed (it's typically present in `requirements.txt`).
+Note: If you plan to use Ultralytics' YOLO training APIs directly, ensure `ultralytics` is present in `requirements.txt` or installed separately.
 
-## Dataset & format
+## Dataset & label format 📦
 
-This repository uses the YOLO (Darknet) text-label format: for each image there is a corresponding .txt file with lines formatted as:
+This repository uses the YOLO (Darknet) text-label format. For each image there is a `.txt` file containing lines in the form:
 
 ```
 class_id center_x center_y width height
 ```
 
-All coordinates are normalized to [0,1]. Example dataset folders are `train/`, `valid/`, and `test/` with subfolders `images/` and `labels/`.
+All coordinates are normalized to the range [0,1]. Typical dataset layout: `train/`, `valid/`, and `test/` with `images/` and `labels/` subfolders.
 
-The project originally used the Roboflow Garbage Classification dataset. See `data.yaml` for class names and paths used for training.
+The project originally used the Roboflow Garbage Classification dataset. Check `data.yaml` for class names and paths used for training.
 
-## Training
+## Training 🧠
 
-Two ways to train:
+Two common ways to train the model:
 
-- Use the included training script (simple wrapper):
+1) Use the included training wrapper:
 
 ```bash
 python train_model.py
 ```
 
-- Or use Ultralytics YOLOv8 directly (example):
+2) Use Ultralytics YOLOv8 API directly (example):
 
 ```python
 from ultralytics import YOLO
-model = YOLO('yolov8n.pt')  # or use your starting weights
+model = YOLO('yolov8n.pt')  # or your starting weights
 model.train(data='data.yaml', epochs=50, imgsz=640)
 ```
 
-During training, model artifacts and logs are saved to `runs/` (check `runs/train/` or `runs/detect/` for weights and results).
+During training, artifacts and logs are saved to `runs/` (for example `runs/train/exp*/`). Inspect `results.png`, `metrics.csv` and saved weights inside that folder.
 
-Tips:
-- To resume training from a checkpoint, pass the checkpoint path as the `weights` argument in the training call.
-- Monitor training with the generated `results.png` and the `runs/train/exp*/` folder.
+Tips
+- 🔁 To resume training, pass the checkpoint path as the `weights` argument.
+- 📈 Monitor progress using the generated plots in `runs/train/exp*/`.
 
-## Inference / Demo (Streamlit)
+## Inference / Demo (Streamlit) 🎯
 
-The repo contains `app.py`, a Streamlit app that demonstrates detection on images, videos, and webcam. Run it with:
+A Streamlit demo is provided in `app.py` for quick testing of images, videos, and webcam streams. Run it with:
 
 ```bash
 streamlit run app.py
 ```
 
-App features:
-- Image upload and batch processing
-- Video file processing with basic stats
-- Live webcam detection (if camera available)
+App capabilities:
+- 🖼️ Image upload and batch processing
+- 🎞️ Video file processing with simple stats
+- 📷 Live webcam detection (if a camera is available)
 
-Alternatively, you can run a simple detection script that loads a weight and runs inference on an image:
+Programmatic inference example:
 
 ```python
 from ultralytics import YOLO
@@ -108,13 +129,19 @@ results = model('test/images/example.jpg')
 results.show()
 ```
 
-## Evaluation
+## Evaluation & metrics 📊
 
-After training, metrics (mAP, precision, recall) are available in the training output (console and `runs/train/exp*/metrics.csv`). Replace `exp*` with the actual experiment folder name.
+Training outputs include mAP, precision, and recall. You can find CSVs and plots in `runs/train/exp*/` (replace `exp*` with your experiment folder).
 
-## Project structure
+Example reported metrics (from a run):
+- mAP@0.5: 54.6%
+- Precision: 59.4%
+- Recall: 49.4%
+- Inference FPS: 435+
 
-Top-level layout (important files/folders):
+Top classes from that run: GLASS, METAL, BIODEGRADABLE (see `runs/` for per-class breakdown).
+
+## Project structure 🗂️
 
 ```
 .
@@ -130,26 +157,26 @@ Top-level layout (important files/folders):
 └─ yolo11n.pt           # Example custom weights (if present)
 ```
 
-## Notes & troubleshooting
+## Troubleshooting & notes 🛠️
 
-- If Streamlit fails to start, ensure your virtual environment is activated and `streamlit` is installed.
-- If GPU training is required, ensure CUDA drivers + `torch` with CUDA are installed and visible to Python.
-- If you get label-format errors during training, check `train/labels/*.txt` for correct `class x y w h` normalized values.
+- ⚠️ Streamlit fails to start? Ensure the virtual environment is active and `streamlit` is installed.
+- 🧯 GPU training needed? Install CUDA drivers and a CUDA-enabled `torch` build.
+- 🔍 Label format errors? Check `train/labels/*.txt` for normalized `class x y w h` values.
 
-## Contributing
+## Contributing 🤝
 
-Contributions welcome. Opening issues with reproducible details or a small PR with tests/documentation is ideal.
+Contributions are welcome! Open an issue or submit a PR with a clear description and small, testable changes.
 
-Suggested small tasks:
+Ideas for improvements
 - Add example inference notebooks
-- Add a Dockerfile for reproducible runs
-- Add CI checks for linting or simple smoke tests
+- Provide a Dockerfile for reproducible runs
+- Add a lightweight CI workflow for linting and a smoke test
 
-## License
+## License �
 
 This repository is released under the MIT License. See `LICENSE` if present.
 
-## Acknowledgements
+## Acknowledgements 🙏
 
 - Roboflow (dataset exports)
 - Ultralytics (YOLOv8)
@@ -157,6 +184,3 @@ This repository is released under the MIT License. See `LICENSE` if present.
 
 ---
 
-If you'd like, I can also:
-- Add a short CONTRIBUTING.md and issue/PR templates
-- Add a minimal GitHub Actions workflow to run a fast lint/test
