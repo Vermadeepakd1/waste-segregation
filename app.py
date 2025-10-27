@@ -53,11 +53,11 @@ if mode == "Image Detection":
 
         col1, col2 = st.columns(2)
         with col1:
-            st.image(image, caption="Original", use_column_width=True)
+            st.image(image, caption="Original")
         with col2:
             annotated_img = results[0].plot()
             annotated_rgb = cv2.cvtColor(annotated_img, cv2.COLOR_BGR2RGB)
-            st.image(annotated_rgb, caption="Detected", use_column_width=True)
+            st.image(annotated_rgb, caption="Detected")
 
         detections = []
         if results[0].boxes:
@@ -68,7 +68,7 @@ if mode == "Image Detection":
                 detections.append({'ID': idx+1, 'Class': cls_name, 'Confidence': f"{conf_score:.1%}"})
 
             st.subheader("Detections")
-            st.dataframe(pd.DataFrame(detections), use_column_width=True)
+            st.dataframe(pd.DataFrame(detections))
         else:
             st.info("No waste detected in this image.")
 
@@ -132,7 +132,7 @@ elif mode == "Video Detection":
             st.subheader("Detections per Class")
             df_classes = pd.DataFrame(list(class_counts.items()), columns=["Class", "Count"]).sort_values(by="Count", ascending=False)
             fig = px.bar(df_classes, x="Class", y="Count", color="Class", title="Class Distribution")
-            st.plotly_chart(fig, use_column_width=True)
+            st.plotly_chart(fig)
 
         if sample_frames:
             st.subheader("Sample Frames")
@@ -176,7 +176,6 @@ elif mode == "Live Webcam":
                 
                 frame_placeholder.image(annotated_rgb)
                 fps_placeholder.text(f"FPS: {cap.get(cv2.CAP_PROP_FPS):.1f}")
-                # Small sleep to allow Streamlit to refresh UI
                 time.sleep(0.01)
 
             cap.release()
@@ -196,7 +195,7 @@ elif mode == "Dashboard":
     
     fig1 = px.bar(df_metrics, x="Metric", y="Score", color="Score", color_continuous_scale="Viridis",
                   title="Overall Model Metrics")
-    st.plotly_chart(fig1, use_column_width=True)
+    st.plotly_chart(fig1)
     
     st.markdown("---")
     
@@ -209,7 +208,7 @@ elif mode == "Dashboard":
 
     fig2 = px.bar(df_class_perf, x="Class", y="mAP50", color="mAP50", color_continuous_scale="RdYlGn",
                   title="Per Class mAP@0.5")
-    st.plotly_chart(fig2, use_column_width=True)
+    st.plotly_chart(fig2)
 
 # About
 elif mode == "About":
