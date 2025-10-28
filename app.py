@@ -7,6 +7,7 @@ from ultralytics import YOLO
 import time
 import plotly.express as px
 from pathlib import Path
+from streamlit_webrtc import webrtc_streamer, VideoTransformerBase
 
 # Page config
 st.set_page_config(page_title="♻ Waste Segregation AI", layout="wide", initial_sidebar_state="expanded")
@@ -42,9 +43,9 @@ skip_frames = st.sidebar.slider("Frame Skip Interval", 1, 5, 1)
 if mode == "Image Detection":
     st.header("📷 Image Detection")
     uploaded_file = st.file_uploader("Upload an image", type=['jpg', 'jpeg', 'png'], key="img_upload")
-    
+
     if uploaded_file is not None:
-        image = Image.open(uploaded_file).convert('RGB')  # Alpha channel fix
+        image = Image.open(uploaded_file).convert('RGB')
         img_array = np.array(image)
         img_bgr = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
 
@@ -53,11 +54,11 @@ if mode == "Image Detection":
 
         col1, col2 = st.columns(2)
         with col1:
-            st.image(image, caption="Original")
+            st.image(image, caption="Original", use_container_width=True)
         with col2:
             annotated_img = results[0].plot()
             annotated_rgb = cv2.cvtColor(annotated_img, cv2.COLOR_BGR2RGB)
-            st.image(annotated_rgb, caption="Detected")
+            st.image(annotated_rgb, caption="Detected", use_container_width=True)
 
         detections = []
         if results[0].boxes:
@@ -76,21 +77,21 @@ if mode == "Image Detection":
 elif mode == "Video Detection":
     st.header("🎬 Video Detection")
     uploaded_video = st.file_uploader("Upload a video", type=['mp4', 'avi', 'mov', 'mkv'], key="vid_upload")
-    
+
     if uploaded_video is not None:
         temp_path = f"temp_video_{int(time.time())}.mp4"
         with open(temp_path, "wb") as f:
             f.write(uploaded_video.read())
-        
+
         cap = cv2.VideoCapture(temp_path)
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         fps = cap.get(cv2.CAP_PROP_FPS) or 30
-        
+
         frame_idx = 0
         detection_count = 0
         class_counts = {}
         sample_frames = []
-        
+
         progress_bar = st.progress(0)
         status_text = st.empty()
 
@@ -98,7 +99,7 @@ elif mode == "Video Detection":
             ret, frame = cap.read()
             if not ret or frame_idx >= max_frames * skip_frames:
                 break
-            
+
             frame_idx += 1
             if frame_idx % skip_frames != 0:
                 continue
@@ -112,14 +113,14 @@ elif mode == "Video Detection":
 
             if len(sample_frames) < 3:
                 sample_frames.append(results[0].plot())
-            
+
             progress_bar.progress(min(frame_idx/(max_frames*skip_frames), 1.0))
             status_text.text(f"Processing frame {frame_idx} of {total_frames}")
-        
+
         cap.release()
         status_text.text(f"Processing complete! {frame_idx} frames processed")
         progress_bar.empty()
-        
+
         st.success(f"Total detections: {detection_count}")
 
         col1, col2, col3, col4 = st.columns(4)
@@ -127,12 +128,12 @@ elif mode == "Video Detection":
         col2.metric("Frames Processed", frame_idx)
         col3.metric("Duration (s)", f"{total_frames/fps:.2f}")
         col4.metric("Classes Found", len(class_counts))
-        
+
         if class_counts:
             st.subheader("Detections per Class")
             df_classes = pd.DataFrame(list(class_counts.items()), columns=["Class", "Count"]).sort_values(by="Count", ascending=False)
             fig = px.bar(df_classes, x="Class", y="Count", color="Class", title="Class Distribution")
-            st.plotly_chart(fig)
+            st.plotly_chart(fig, use_container_width=True)
 
         if sample_frames:
             st.subheader("Sample Frames")
@@ -142,63 +143,35 @@ elif mode == "Video Detection":
 
         Path(temp_path).unlink()
 
-# Live Webcam Detection
+# Live Webcam Detection using WebRTC
 elif mode == "Live Webcam":
     st.header("📹 Live Webcam Detection")
-    
-    if 'webcam_running' not in st.session_state:
-        st.session_state.webcam_running = False
 
-    if not st.session_state.webcam_running:
-        if st.button("Start Webcam Detection", key="start_webcam"):
-            st.session_state.webcam_running = True
-    else:
-        if st.button("Stop Webcam Detection", key="stop_webcam"):
-            st.session_state.webcam_running = False
+    class YOLOTransformer(VideoTransformerBase):
+        def transform(self, frame):
+            img = frame.to_ndarray(format="bgr24")
+            results = model(img, conf=confidence, verbose=False)
+            annotated = results[0].plot()
+            return cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
 
-    if st.session_state.webcam_running:
-        cap = cv2.VideoCapture(0)
-        if not cap.isOpened():
-            st.error("Webcam is not accessible.")
-            st.session_state.webcam_running = False
-        else:
-            frame_placeholder = st.empty()
-            fps_placeholder = st.empty()
-            while st.session_state.webcam_running:
-                ret, frame = cap.read()
-                if not ret:
-                    st.warning("Failed to capture frame.")
-                    break
-                
-                results = model(frame, conf=confidence, verbose=False)
-                annotated = results[0].plot()
-                annotated_rgb = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
-                
-                frame_placeholder.image(annotated_rgb)
-                fps_placeholder.text(f"FPS: {cap.get(cv2.CAP_PROP_FPS):.1f}")
-                time.sleep(0.01)
-
-            cap.release()
-            cv2.destroyAllWindows()
-    else:
-        st.info("Webcam detection stopped. Click start to begin.")
+    webrtc_streamer(key="waste-detect", video_transformer_factory=YOLOTransformer, media_stream_constraints={"video": True, "audio": False})
 
 # Dashboard
 elif mode == "Dashboard":
     st.header("📊 Dashboard")
-    
+
     metrics = {
         "Metric": ["mAP@0.5", "Precision", "Recall", "mAP@0.5:0.95"],
         "Score": [0.546, 0.594, 0.494, 0.38]
     }
     df_metrics = pd.DataFrame(metrics)
-    
+
     fig1 = px.bar(df_metrics, x="Metric", y="Score", color="Score", color_continuous_scale="Viridis",
                   title="Overall Model Metrics")
-    st.plotly_chart(fig1)
-    
+    st.plotly_chart(fig1, use_container_width=True)
+
     st.markdown("---")
-    
+
     st.markdown("### Class-wise performance")
     class_perf = {
         "Class": ["GLASS", "METAL", "BIODEGRADABLE", "CARDBOARD", "PLASTIC", "PAPER"],
@@ -208,7 +181,7 @@ elif mode == "Dashboard":
 
     fig2 = px.bar(df_class_perf, x="Class", y="mAP50", color="mAP50", color_continuous_scale="RdYlGn",
                   title="Per Class mAP@0.5")
-    st.plotly_chart(fig2)
+    st.plotly_chart(fig2, use_container_width=True)
 
 # About
 elif mode == "About":
