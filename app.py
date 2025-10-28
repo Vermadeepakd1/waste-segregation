@@ -7,7 +7,8 @@ from ultralytics import YOLO
 import time
 import plotly.express as px
 from pathlib import Path
-from streamlit_webrtc import webrtc_streamer, VideoTransformerBase
+from streamlit_webrtc import webrtc_streamer, VideoProcessorBase
+import av
 
 # Page config
 st.set_page_config(page_title="♻ Waste Segregation AI", layout="wide", initial_sidebar_state="expanded")
@@ -39,7 +40,7 @@ confidence = st.sidebar.slider("Confidence Threshold", 0.1, 1.0, 0.5, 0.05)
 max_frames = st.sidebar.slider("Max Video Frames", 1, 500, 100)
 skip_frames = st.sidebar.slider("Frame Skip Interval", 1, 5, 1)
 
-# Image Detection
+# -------------------- IMAGE DETECTION --------------------
 if mode == "Image Detection":
     st.header("📷 Image Detection")
     uploaded_file = st.file_uploader("Upload an image", type=['jpg', 'jpeg', 'png'], key="img_upload")
@@ -54,11 +55,11 @@ if mode == "Image Detection":
 
         col1, col2 = st.columns(2)
         with col1:
-            st.image(image, caption="Original", use_container_width=True)
+            st.image(image, caption="Original")
         with col2:
             annotated_img = results[0].plot()
             annotated_rgb = cv2.cvtColor(annotated_img, cv2.COLOR_BGR2RGB)
-            st.image(annotated_rgb, caption="Detected", use_container_width=True)
+            st.image(annotated_rgb, caption="Detected")
 
         detections = []
         if results[0].boxes:
@@ -73,7 +74,7 @@ if mode == "Image Detection":
         else:
             st.info("No waste detected in this image.")
 
-# Video Detection
+# -------------------- VIDEO DETECTION --------------------
 elif mode == "Video Detection":
     st.header("🎬 Video Detection")
     uploaded_video = st.file_uploader("Upload a video", type=['mp4', 'avi', 'mov', 'mkv'], key="vid_upload")
@@ -133,7 +134,7 @@ elif mode == "Video Detection":
             st.subheader("Detections per Class")
             df_classes = pd.DataFrame(list(class_counts.items()), columns=["Class", "Count"]).sort_values(by="Count", ascending=False)
             fig = px.bar(df_classes, x="Class", y="Count", color="Class", title="Class Distribution")
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig)
 
         if sample_frames:
             st.subheader("Sample Frames")
@@ -143,20 +144,33 @@ elif mode == "Video Detection":
 
         Path(temp_path).unlink()
 
-# Live Webcam Detection using WebRTC
+# -------------------- LIVE WEBCAM (WebRTC) --------------------
 elif mode == "Live Webcam":
     st.header("📹 Live Webcam Detection")
 
-    class YOLOTransformer(VideoTransformerBase):
-        def transform(self, frame):
+    class YOLOProcessor(VideoProcessorBase):
+        def __init__(self):
+            self.model = model
+
+        def recv(self, frame):
             img = frame.to_ndarray(format="bgr24")
-            results = model(img, conf=confidence, verbose=False)
+            results = self.model(img, conf=confidence, verbose=False)
             annotated = results[0].plot()
-            return cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
+            return av.VideoFrame.from_ndarray(annotated, format="bgr24")
 
-    webrtc_streamer(key="waste-detect", video_transformer_factory=YOLOTransformer, media_stream_constraints={"video": True, "audio": False})
+    # Add STUN server for remote access
+    rtc_config = {
+        "iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]
+    }
 
-# Dashboard
+    webrtc_streamer(
+        key="waste-detect",
+        video_processor_factory=YOLOProcessor,
+        rtc_configuration=rtc_config,
+        media_stream_constraints={"video": True, "audio": False}
+    )
+
+# -------------------- DASHBOARD --------------------
 elif mode == "Dashboard":
     st.header("📊 Dashboard")
 
@@ -168,7 +182,7 @@ elif mode == "Dashboard":
 
     fig1 = px.bar(df_metrics, x="Metric", y="Score", color="Score", color_continuous_scale="Viridis",
                   title="Overall Model Metrics")
-    st.plotly_chart(fig1, use_container_width=True)
+    st.plotly_chart(fig1)
 
     st.markdown("---")
 
@@ -181,9 +195,9 @@ elif mode == "Dashboard":
 
     fig2 = px.bar(df_class_perf, x="Class", y="mAP50", color="mAP50", color_continuous_scale="RdYlGn",
                   title="Per Class mAP@0.5")
-    st.plotly_chart(fig2, use_container_width=True)
+    st.plotly_chart(fig2)
 
-# About
+# -------------------- ABOUT --------------------
 elif mode == "About":
     st.header("ℹ About This Project")
     st.write("""
